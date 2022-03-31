@@ -1,0 +1,50 @@
+esphome:
+  name: test
+
+# Example configuration entry
+switch:
+  - platform: gpio
+    pin: D4
+    name: "Living Room Dehumidifier"
+
+esp8266:
+  board: nodemcu
+
+sensor:
+  - platform: adc
+    pin: A0
+    name: "Living Room Brightness"
+    update_interval: 2s
+
+binary_sensor:
+  - platform: gpio
+    pin: D0 
+    name: "PIR Sensor"
+    device_class: motion
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  password: ""
+
+wifi:
+  ssid: "DangarSlow"
+  password: "nolfonzo"
+      # Optional manual IP
+      #  manual_ip:
+      #    static_ip: 192.168.20.51
+      #    gateway: 192.168.20.1
+      #    subnet: 255.255.255.0
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Test Fallback Hotspot"
+    password: "lGyKZTbfjOXb"
+
+captive_portal:
+    
