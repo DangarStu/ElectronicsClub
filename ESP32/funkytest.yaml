@@ -1,26 +1,21 @@
 esphome:
-  name: test
+  name: funkytest
 
 # Example configuration entry
 switch:
   - platform: gpio
     pin: D4
-    name: "Living Room Dehumidifier"
+    name: "LED"
 
-esp8266:
-  board: nodemcu
-
-sensor:
-  - platform: adc
-    pin: A0
-    name: "Living Room Brightness"
-    update_interval: 2s
 
 binary_sensor:
   - platform: gpio
-    pin: D0 
+    pin: D0
     name: "PIR Sensor"
     device_class: motion
+
+esp8266:
+  board: nodemcu
 
 # Enable logging
 logger:
@@ -43,8 +38,8 @@ wifi:
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: "Test Fallback Hotspot"
-    password: "lGyKZTbfjOXb"
+    ssid: "D-Link DVA-2800"
+    password: "Landrover"
 
 captive_portal:
     
