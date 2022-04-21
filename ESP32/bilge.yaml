@@ -1,18 +1,11 @@
 esphome:
-  name: alfred
-
-# Example configuration entry
-switch:
-  - platform: gpio
-    pin: D4
-    name: "Alfred's LED"
-
+  name: bilge
 
 binary_sensor:
   - platform: gpio
-    pin: D1
-    name: "Renko PIR Sensor"
-    device_class: motion
+    pin: D2
+    name: "Bilge Switch"
+    device_class: problem
 
 esp8266:
   board: nodemcu
@@ -28,7 +21,7 @@ ota:
   password: ""
 
 wifi:
-  ssid: "DangarSlow"
+  ssid: "ASUS"
   password: "nolfonzo"
       # Optional manual IP
       #  manual_ip:
@@ -38,8 +31,8 @@ wifi:
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: "D-Link DVA-2800"
-    password: "Landrover"
+    ssid: "Test Fallback Hotspot"
+    password: "lGyKZTbfjOXb"
 
 captive_portal:
     
