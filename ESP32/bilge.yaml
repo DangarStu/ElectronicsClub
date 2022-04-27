@@ -1,11 +1,14 @@
 esphome:
   name: bilge
 
+# D4 has a pullup, so switch activated by gound connection and inverted
 binary_sensor:
   - platform: gpio
-    pin: D2
+    pin: D4
     name: "Bilge Switch"
     device_class: problem
+    filters:
+      - invert:
 
 esp8266:
   board: nodemcu
