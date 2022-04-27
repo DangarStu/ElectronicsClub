@@ -12,9 +12,9 @@ MqttClient mqttClient(wifiClient);
 
 const char broker[] = "test.mosquitto.org";
 int        port     = 1883;
-const char topic[]  = "real_unique_topic";
-const char topic2[]  = "real_unique_topic_2";
-const char topic3[]  = "real_unique_topic_3";
+const char topic0[]  = "house_voltage";
+const char topic1[]  = "starter_voltage";
+const char topic2[]  = "12v_voltage";
 
 //set interval for sending messages (milliseconds)
 const long interval = 8000;
@@ -53,6 +53,14 @@ void setup() {
 
   Serial.println("You're connected to the MQTT broker!");
   Serial.println();
+
+  // INITIALISE THE LCD SCREEN
+  pinMode(houseBankInput, INPUT);
+  lcd.begin(16, 2);
+  lcd.print("HOUSE BATTERY BANK");
+   
+   // CLEAR THE ROLLING AVERAGE BUFFER
+   houseBank.begin();
 }
 
 void loop() {
@@ -62,40 +70,56 @@ void loop() {
 
   unsigned long currentMillis = millis();
 
-  if (currentMillis - previousMillis >= interval) {
-    // save the last time a message was sent
-    previousMillis = currentMillis;
-
-    //record random value from A0, A1 and A2
-    int Rvalue = analogRead(A0);
-    int Rvalue2 = analogRead(A1);
-    int Rvalue3 = analogRead(A2);
+    // THE VOLTAGES FROM A0, A1 and A2
+    int Rvalue0 = analogRead(A0);
+    int Rvalue1 = analogRead(A1);
+    int Rvalue2 = analogRead(A2);
 
     Serial.print("Sending message to topic: ");
-    Serial.println(topic);
-    Serial.println(Rvalue);
+    Serial.println(topic0);
+    Serial.println(Rvalue0);
+
+    Serial.print("Sending message to topic: ");
+    Serial.println(topic1);
+    Serial.println(Rvalue1);
 
     Serial.print("Sending message to topic: ");
     Serial.println(topic2);
     Serial.println(Rvalue2);
 
-    Serial.print("Sending message to topic: ");
-    Serial.println(topic2);
-    Serial.println(Rvalue3);
-
     // send message, the Print interface can be used to set the message contents
-    mqttClient.beginMessage(topic);
-    mqttClient.print(Rvalue);
+    mqttClient.beginMessage(topic0);
+    mqttClient.print(Rvalue0);
+    mqttClient.endMessage();
+
+    mqttClient.beginMessage(topic1);
+    mqttClient.print(Rvalue1);
     mqttClient.endMessage();
 
     mqttClient.beginMessage(topic2);
     mqttClient.print(Rvalue2);
     mqttClient.endMessage();
 
-    mqttClient.beginMessage(topic3);
-    mqttClient.print(Rvalue3);
-    mqttClient.endMessage();
-
     Serial.println();
-  }
+
+    // READ THE VOLTAGE AT PIN A0
+    houseBank.reading(readVoltage(houseBankInput));
+
+    lcd.setCursor(0, 1);
+    lcd.print(vin);
+    lcd.print("VDC");
+    
+    delay(500);
+}
+
+float readVoltage(int inputChannel)
+{
+    long digitalRead = analogRead(inputChannel);
+
+    float measuredVoltage = (digitalRead * referenceVoltage) / 1024.0;
+    
+    float calculatedVoltage = measuredVoltage / (Resistor2/(Resistor1+Resistor2)); 
+   
+    return (calculatedVoltage);
+    
 }
