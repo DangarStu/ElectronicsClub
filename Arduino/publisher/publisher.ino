@@ -29,7 +29,7 @@ void setup() {
     ; // wait for serial port to connect. Needed for native USB port only
   }
 
-  // attempt to connect to Wifi network:
+  // ATTEMPT TO CONNECT TO THE WIFI NETWORK
   Serial.print("Attempting to connect to WPA SSID: ");
   Serial.println(ssid);
   while (WiFi.begin(ssid, pass) != WL_CONNECTED) {
