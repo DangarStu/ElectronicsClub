@@ -19,6 +19,8 @@ using namespace sensesp;
 
 reactesp::ReactESP app;
 
+float Thermister(int);
+
 // The setup function performs one-time application initialization.
 void setup() {
 #ifndef SERIAL_DEBUG_DISABLED
@@ -32,17 +34,19 @@ void setup() {
                     ->set_hostname("my-sensesp-project")
                     // Optionally, hard-code the WiFi and Signal K server
                     // settings. This is normally not needed.
-                    //->set_wifi("My WiFi SSID", "my_wifi_password")
+                    ->set_wifi("D-Link DVA-2800", "Landrover")
                     //->set_sk_server("192.168.10.3", 80)
                     ->get_app();
 
   // GPIO number to use for the analog input
   const uint8_t kAnalogInputPin = 36;
+
   // Define how often (in milliseconds) new samples are acquired
   const unsigned int kAnalogInputReadInterval = 500;
+
   // Define the produced value at the maximum input voltage (3.3V).
   // A value of 3.3 gives output equal to the input voltage.
-  const float kAnalogInputScale = 3.3;
+  const float kAnalogInputScale = 4096;
 
   // Create a new Analog Input Sensor that reads an analog input pin
   // periodically.
@@ -52,7 +56,8 @@ void setup() {
   // Add an observer that prints out the current value of the analog input
   // every time it changes.
   analog_input->attach([analog_input]() {
-    debugD("Analog input value: %f", analog_input->get());
+    debugD("Analogue input value: %f", analog_input->get());
+    debugD("Transformed value: %f", Thermister(analog_input->get()));
   });
 
   // Set GPIO pin 15 to output and toggle it every 650 ms
@@ -121,6 +126,17 @@ void setup() {
 
   // Start networking, SK server connections and other SensESP internals
   sensesp_app->start();
+}
+
+//Function to perform the fancy math of the Steinhart-Hart equation
+float Thermister(int digital) {  
+ float Temp;
+ Temp = log(((40960000/digital) - 10000));
+ Temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * Temp * Temp ))* Temp );
+ 
+ // Convert Kelvin to Celsius
+ Temp = Temp - 273.15;              
+ return Temp;
 }
 
 void loop() { app.tick(); }

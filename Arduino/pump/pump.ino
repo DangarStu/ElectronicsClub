@@ -10,20 +10,20 @@
 #include <movingAvg.h>
 #include <math.h>         //loads the more advanced math functions
 
-movingAvg coolant(10);
+movingAvg coolant(100);
 
-#define tempSensor  0
+#define tempSensor  1
 
-LiquidCrystal lcd (7, 8, 9, 10, 11, 12);
+LiquidCrystal lcd (8, 9, 4, 5, 6, 7);
 
 void setup() { 
   pinMode(tempSensor, INPUT);
   lcd.begin(16, 2);
-  lcd.print("COOLANT TEMPERATURE");
+  lcd.print("COOLANT TEMP");
    
   // CLEAR THE ROLLING AVERAGE BUFFER
   coolant.begin();       //This function gets called when the Arduino starts
-  Serial.begin(9600);   //This code sets up the Serial port at 115200 baud rate
+  Serial.begin(9600);   //This code sets up the Serial port at 9600 baud rate
 }
  
 //Function to perform the fancy math of the Steinhart-Hart equation
@@ -49,10 +49,11 @@ void loop() {
         
   //Runs the fancy math on the raw analog value
   coolant.reading(Thermister(val));   
+  Serial.print(val);
   Serial.print ("Temp C: "); // Change this if monitoring another type of fluid
-  Serial.println(temp);   //Print the value to the serial port
+  Serial.println(coolant.getAvg());   //Print the value to the serial port
   lcd.setCursor(0, 1);
   lcd.print(coolant.getAvg());
-  lcd.print("Deg C");
-  delay(1000);            //Wait one second before we do it again
+  lcd.print(" Deg C   ");
+  delay(500);            //Wait one second before we do it again
 }
