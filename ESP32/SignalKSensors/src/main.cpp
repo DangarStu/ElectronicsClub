@@ -90,18 +90,7 @@ void setup() {
   // network.
   // To find valid Signal K Paths that fits your need you look at this link:
   // https://signalk.org/specification/1.4.0/doc/vesselsBranch.html
-  const char* sk_path = "coolant.outboard.temperature";
-
-  // If you are creating a new Signal K path that does not
-  // already exist in the specification, it is best to
-  // define "metadata" that describes your new value. This
-  // metadata will be reported to the server upon the first
-  // time your sensor reports its value(s) to the server
-  SKMetadata* metadata = new SKMetadata();
-  metadata->description_ = "Coolant Temperature";
-  metadata->display_name_ = "Coolant Temperature";
-  metadata->short_name_ = "Coolant Temp";
-  metadata->units_ = "C";
+  const char* sk_path = "propulsion.outboard.coolantTemperature";
 
   /* Translating the number returned by AnalogInput into a temperature, and
      sending it to Signal K, requires several transforms. Wire them up in
@@ -118,12 +107,11 @@ void setup() {
       ->connect_to(new TemperatureInterpreter("/coolant/temp/curve"))
       ->connect_to(new Linear(1.0, 273.0, "/collant/temp/calibrate"))
       ->connect_to(
-          new SKOutputFloat(sk_path, "/coolant/temp/sk", metadata));
+          new SKOutputFloat(sk_path, "/coolant/temp/sk"));
 
   // Set highWaterAlarmDigitalOutputPin to high to activate the high water alarm.
   const uint8_t highWaterAlarmDigitalOutputPin = 15;
   pinMode(highWaterAlarmDigitalOutputPin, OUTPUT);
-
 
   // Read GPIO 14 every time it changes
   const uint8_t highWaterAlarmDigitalInputPin = 14;
