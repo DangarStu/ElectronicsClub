@@ -20,7 +20,41 @@ using namespace sensesp;
 reactesp::ReactESP app;
 
 // Prototypes
-float Thermister(int);
+float convertAnalogToTemperature(unsigned int);
+
+class TemperatureInterpreter : public CurveInterpolator {
+ public:
+  TemperatureInterpreter(String config_path = "")
+      : CurveInterpolator(NULL, config_path) {
+    // Populate a lookup table tp translate the ohm values returned by
+    // our temperature sender to degrees Kelvin
+    clear_samples();
+    // addSample(CurveInterpolator::Sample(knownOhmValue, knownKelvin));
+    add_sample(CurveInterpolator::Sample(10, 5728));
+    add_sample(CurveInterpolator::Sample(15, 4496));
+    add_sample(CurveInterpolator::Sample(20, 3555));
+    add_sample(CurveInterpolator::Sample(25, 2830));
+    add_sample(CurveInterpolator::Sample(30, 2268));
+    add_sample(CurveInterpolator::Sample(35, 1828));
+    add_sample(CurveInterpolator::Sample(40, 1483));
+    add_sample(CurveInterpolator::Sample(45, 1210));
+    add_sample(CurveInterpolator::Sample(50, 992));
+    add_sample(CurveInterpolator::Sample(55, 819));
+    add_sample(CurveInterpolator::Sample(60, 679));
+    add_sample(CurveInterpolator::Sample(65, 566));
+    add_sample(CurveInterpolator::Sample(70, 475));
+    add_sample(CurveInterpolator::Sample(75, 400));
+    add_sample(CurveInterpolator::Sample(80, 338));
+    add_sample(CurveInterpolator::Sample(85, 287));
+    add_sample(CurveInterpolator::Sample(90, 244.8));
+    add_sample(CurveInterpolator::Sample(95, 209.7));
+    add_sample(CurveInterpolator::Sample(100, 180.3));
+    add_sample(CurveInterpolator::Sample(105, 155.6));
+    add_sample(CurveInterpolator::Sample(110, 134.7));
+    add_sample(CurveInterpolator::Sample(115, 117.1));
+    add_sample(CurveInterpolator::Sample(120, 102.2));
+  }
+};
 
 // The setup function performs one-time application initialization.
 void setup() {
@@ -32,7 +66,7 @@ void setup() {
   SensESPAppBuilder builder;
   sensesp_app = (&builder)
                     // Set a custom hostname for the app.
-                    ->set_hostname("my-sensesp-project")
+                    ->set_hostname("outboard")
                     // Optionally, hard-code the WiFi and Signal K server
                     // settings. This is normally not needed.
                     ->set_wifi("D-Link DVA-2800", "Landrover")
@@ -58,7 +92,7 @@ void setup() {
   // every time it changes.
   analog_input->attach([analog_input]() {
     debugD("Analogue input value: %f", analog_input->get());
-    debugD("Transformed value: %f", Thermister(analog_input->get()));
+    debugD("Transformed value: %f", convertAnalogToTemperature(analog_input->get()));
   });
 
   // Set GPIO pin 15 to output and toggle it every 650 ms
@@ -109,12 +143,12 @@ void setup() {
   // Connect the analog input to Signal K output. This will publish the
   // analog input value to the Signal K server every time it changes.
   analog_input->connect_to(new SKOutputFloat(
-      "sensors.analog_input.voltage",         // Signal K path
-      "/sensors/analog_input/voltage",        // configuration path, used in the
+      "sensors.coolant.degrees",         // Signal K path
+      "/sensors/coolant/degrees",        // configuration path, used in the
                                               // web UI and for storing the
                                               // configuration
-      new SKMetadata("V",                     // Define output units
-                     "Analog input voltage")  // Value description
+      new SKMetadata("C",                     // Define output units
+                     "Coolant temperature in Celcius")  // Value description
       ));
 
   // Connect digital input 2 to Signal K output.
@@ -129,15 +163,46 @@ void setup() {
   sensesp_app->start();
 }
 
-// Function to perform the fancy math of the Steinhart-Hart equation
-float Thermister(int digital) {  
-  // Convert the digitial input into a resistance
-  float Temp;
-  Temp = 1.2 * 2.98 * log()
-  Temp = log(((10240000/digital) - 10000));
-  Temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * Temp * Temp ))* Temp );
-        
- return Temp;
+// ADC Value to Temperature for NTC Thermistor.
+// Author: James Sleeman http://sparks.gogo.co.nz/ntc.html
+// Licence: BSD (see footer for legalese)
+//
+// Thermistor characteristics:
+//   Nominal Resistance 2830 at 25°C
+//   Beta Value 3912.07
+//
+// Usage Examples:
+//   float bestAccuracyTemperature    = convertAnalogToTemperature(analogRead(analogPin));
+//   float lesserAccuracyTemperature  = approximateTemperatureFloat(analogRead(analogPin));
+//   int   lowestAccuracyTemperature  = approximateTemperatureInt(analogRead(analogPin));
+//
+// Better accuracy = more resource (memory, flash) demands, the approximation methods 
+// will only produce reasonable results in the range 50-100°C
+//
+//
+// Thermistor Wiring:
+//   Vcc -> Thermistor -> [316 Ohm Resistor] -> Gnd
+//                     |
+//                     \-> analogPin
+//
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+/** Calculate the temperature in °C from ADC (analogRead) value.
+ *
+ *  This conversion should generate reasonably accurate results over a large range of 
+ *  the thermistor, it implements a 'Beta' approximation for a thermistor
+ *  having Beta of 3912.07, and nominal values of 2830Ω at 25°C
+ *
+ *  @param {int} The result of an ADC conversion (analogRead) in the range 0 to 4096
+ *  @return  {float} Temperature in °C
+ */
+
+float  convertAnalogToTemperature(unsigned int analogReadValue)
+{
+  // If analogReadValue is 0, we would otherwise cause a Divide-By-Zero,
+  // Treat as crazy out-of-range temperature.
+  if(analogReadValue == 0) return -1000.0;
+  return (1/((log(((316.0 * (4096.0 - analogReadValue)) / analogReadValue)/2830.0)/3912.1) + (1 / (273.15 + 25.000)))) - 273.15;
 }
 
 void loop() { app.tick(); }
