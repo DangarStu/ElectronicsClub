@@ -14,6 +14,10 @@
 #include "sensesp/signalk/signalk_output.h"
 #include "sensesp/system/lambda_consumer.h"
 #include "sensesp_app_builder.h"
+#include "sensesp/transforms/analogvoltage.h"
+#include "sensesp/transforms/curveinterpolator.h"
+#include "sensesp/transforms/linear.h"
+#include "sensesp/transforms/voltagedivider.h"
 
 using namespace sensesp;
 
@@ -21,6 +25,13 @@ reactesp::ReactESP app;
 
 // Prototypes
 float convertAnalogToTemperature(unsigned int);
+
+  // Voltage sent into the voltage divider circuit that includes the analog
+  // sender
+  const float Vin = 3.3;
+  // The resistance, in ohms, of the fixed resistor (R1) in the voltage divider
+  // circuit
+  const float R1 = 316.0;
 
 class TemperatureInterpreter : public CurveInterpolator {
  public:
@@ -30,29 +41,30 @@ class TemperatureInterpreter : public CurveInterpolator {
     // our temperature sender to degrees Kelvin
     clear_samples();
     // addSample(CurveInterpolator::Sample(knownOhmValue, knownKelvin));
-    add_sample(CurveInterpolator::Sample(10, 5728));
-    add_sample(CurveInterpolator::Sample(15, 4496));
-    add_sample(CurveInterpolator::Sample(20, 3555));
-    add_sample(CurveInterpolator::Sample(25, 2830));
-    add_sample(CurveInterpolator::Sample(30, 2268));
-    add_sample(CurveInterpolator::Sample(35, 1828));
-    add_sample(CurveInterpolator::Sample(40, 1483));
-    add_sample(CurveInterpolator::Sample(45, 1210));
-    add_sample(CurveInterpolator::Sample(50, 992));
-    add_sample(CurveInterpolator::Sample(55, 819));
-    add_sample(CurveInterpolator::Sample(60, 679));
-    add_sample(CurveInterpolator::Sample(65, 566));
-    add_sample(CurveInterpolator::Sample(70, 475));
-    add_sample(CurveInterpolator::Sample(75, 400));
-    add_sample(CurveInterpolator::Sample(80, 338));
-    add_sample(CurveInterpolator::Sample(85, 287));
-    add_sample(CurveInterpolator::Sample(90, 244.8));
-    add_sample(CurveInterpolator::Sample(95, 209.7));
-    add_sample(CurveInterpolator::Sample(100, 180.3));
-    add_sample(CurveInterpolator::Sample(105, 155.6));
-    add_sample(CurveInterpolator::Sample(110, 134.7));
-    add_sample(CurveInterpolator::Sample(115, 117.1));
-    add_sample(CurveInterpolator::Sample(120, 102.2));
+    add_sample(CurveInterpolator::Sample(5728, 10));
+    add_sample(CurveInterpolator::Sample(4496, 15));
+    add_sample(CurveInterpolator::Sample(3555, 20));
+    add_sample(CurveInterpolator::Sample(2830, 25));
+    add_sample(CurveInterpolator::Sample(2268, 30));
+    add_sample(CurveInterpolator::Sample(1828, 35));
+    add_sample(CurveInterpolator::Sample(1483, 40));
+    add_sample(CurveInterpolator::Sample(1210, 45));
+    add_sample(CurveInterpolator::Sample(992, 50));
+    add_sample(CurveInterpolator::Sample(819, 55));
+    add_sample(CurveInterpolator::Sample(679, 60));
+    add_sample(CurveInterpolator::Sample(566, 65));
+    add_sample(CurveInterpolator::Sample(475, 70));
+    add_sample(CurveInterpolator::Sample(400, 75));
+    add_sample(CurveInterpolator::Sample(338, 80));
+    add_sample(CurveInterpolator::Sample(287, 85));
+    add_sample(CurveInterpolator::Sample(245, 90));
+    add_sample(CurveInterpolator::Sample(210, 95));
+    add_sample(CurveInterpolator::Sample(180, 100));
+    add_sample(CurveInterpolator::Sample(156, 105));
+    add_sample(CurveInterpolator::Sample(135, 110));
+    add_sample(CurveInterpolator::Sample(117, 115));
+    add_sample(CurveInterpolator::Sample(102, 120));
+
   }
 };
 
@@ -83,17 +95,45 @@ void setup() {
   // A value of 3.3 gives output equal to the input voltage.
   const float kAnalogInputScale = 4096;
 
-  // Create a new Analog Input Sensor that reads an analog input pin
-  // periodically.
-  auto* analog_input = new AnalogInput(
-      kAnalogInputPin, kAnalogInputReadInterval, "", kAnalogInputScale);
+  // An AnalogInput gets the value from the microcontroller's AnalogIn pin,
+  // which is a value from 0 to 1023.
+  // ESP32 has many pins that can be used for AnalogIn, and they're
+  // expressed here as the XX in GPIOXX.
+  auto* analog_input = new AnalogInput(36);
 
-  // Add an observer that prints out the current value of the analog input
-  // every time it changes.
-  analog_input->attach([analog_input]() {
-    debugD("Analogue input value: %f", analog_input->get());
-    debugD("Transformed value: %f", convertAnalogToTemperature(analog_input->get()));
-  });
+    // The "Signal K path" identifies the output of this sensor to the Signal K
+  // network.
+  // To find valid Signal K Paths that fits your need you look at this link:
+  // https://signalk.org/specification/1.4.0/doc/vesselsBranch.html
+  const char* sk_path = "coolant.outboard.temperature";
+
+  // If you are creating a new Signal K path that does not
+  // already exist in the specification, it is best to
+  // define "metadata" that describes your new value. This
+  // metadata will be reported to the server upon the first
+  // time your sensor reports its value(s) to the server
+  SKMetadata* metadata = new SKMetadata();
+  metadata->description_ = "Coolant Temperature";
+  metadata->display_name_ = "Coolant Temperature";
+  metadata->short_name_ = "Coolant Temp";
+  metadata->units_ = "C";
+
+  /* Translating the number returned by AnalogInput into a temperature, and
+     sending it to Signal K, requires several transforms. Wire them up in
+     sequence:
+     - convert the value from the AnalogIn pin into an AnalogVoltage()
+     - convert voltage into ohms with VoltageDividerR2()
+     - find the Kelvin value for the given ohms value with
+     TemperatureInterpreter()
+     - use Linear() in case you want to calibrate the output at runtime
+     - send calibrated Kelvin value to Signal K with SKOutputNumber()
+  */
+  analog_input->connect_to(new AnalogVoltage())
+      ->connect_to(new VoltageDividerR2(R1, Vin, "/coolant/temp/sender"))
+      ->connect_to(new TemperatureInterpreter("/coolant/temp/curve"))
+      ->connect_to(new Linear(1.0, 0.0, "/collant/temp/calibrate"))
+      ->connect_to(
+          new SKOutputFloat(sk_path, "/coolant/temp/sk", metadata));
 
   // Set GPIO pin 15 to output and toggle it every 650 ms
 
@@ -140,23 +180,12 @@ void setup() {
       kDigitalInput2Interval,
       [kDigitalInput2Pin]() { return digitalRead(kDigitalInput2Pin); });
 
-  // Connect the analog input to Signal K output. This will publish the
-  // analog input value to the Signal K server every time it changes.
-  analog_input->connect_to(new SKOutputFloat(
-      "sensors.coolant.degrees",         // Signal K path
-      "/sensors/coolant/degrees",        // configuration path, used in the
-                                              // web UI and for storing the
-                                              // configuration
-      new SKMetadata("C",                     // Define output units
-                     "Coolant temperature in Celcius")  // Value description
-      ));
-
   // Connect digital input 2 to Signal K output.
   digital_input2->connect_to(new SKOutputBool(
-      "sensors.digital_input2.value",          // Signal K path
-      "/sensors/digital_input2/value",         // configuration path
+      "sensors.high_water_alarm.value",          // Signal K path
+      "/sensors/high_water_alarm/value",         // configuration path
       new SKMetadata("",                       // No units for boolean values
-                     "Digital input 2 value")  // Value description
+                     "High water alarm")  // Value description
       ));
 
   // Start networking, SK server connections and other SensESP internals
