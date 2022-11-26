@@ -71,7 +71,7 @@ void setup() {
   const float Vin = 3.3;
   // The resistance, in ohms, of the fixed resistor (R1) in the voltage divider
   // circuit
-  const float R1 = 316.0;
+  const float R1 = 330.0;
 
   // Define how often (in milliseconds) new samples are acquired
   const unsigned int kAnalogInputReadInterval = 500;
@@ -131,7 +131,7 @@ void setup() {
       "sensors.high_water_alarm.value",          // Signal K path
       "/sensors/high_water_alarm/value",         // configuration path
       new SKMetadata("",                       // No units for boolean values
-                     "High water alarm")  // Value description
+        "High water alarm")  // Value description
       ));
 
   // Create another digital input, this time with RepeatSensor. This approach
