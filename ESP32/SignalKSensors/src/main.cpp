@@ -19,6 +19,7 @@ using namespace sensesp;
 
 reactesp::ReactESP app;
 
+// Prototypes
 float Thermister(int);
 
 // The setup function performs one-time application initialization.
@@ -128,14 +129,14 @@ void setup() {
   sensesp_app->start();
 }
 
-//Function to perform the fancy math of the Steinhart-Hart equation
+// Function to perform the fancy math of the Steinhart-Hart equation
 float Thermister(int digital) {  
- float Temp;
- Temp = log(((40960000/digital) - 10000));
- Temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * Temp * Temp ))* Temp );
- 
- // Convert Kelvin to Celsius
- Temp = Temp - 273.15;              
+  // Convert the digitial input into a resistance
+  float Temp;
+  Temp = 1.2 * 2.98 * log()
+  Temp = log(((10240000/digital) - 10000));
+  Temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * Temp * Temp ))* Temp );
+        
  return Temp;
 }
 
