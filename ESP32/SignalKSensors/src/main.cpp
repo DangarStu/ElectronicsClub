@@ -134,13 +134,8 @@ void setup() {
   // value every time it changes.
   highWaterSwitch->connect_to(new LambdaConsumer<bool>(
       [](bool switchOn) { 
-        debugD("High water switch state changed: %d", switchOn);
-        if (switchOn) {
-          // Switch is on so turn the alarm on.
-          digitalWrite(highWaterAlarmDigitalOutputPin, HIGH);
-        } else {
-           digitalWrite(highWaterAlarmDigitalOutputPin, HIGH); 
-        }
+        debugD("High water switch state changed to %d", switchOn);
+        digitalWrite(highWaterAlarmDigitalOutputPin, switchOn); 
       }));
 
   // Connect digital input 2 to Signal K output.
