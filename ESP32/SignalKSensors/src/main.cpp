@@ -23,48 +23,26 @@ using namespace sensesp;
 
 reactesp::ReactESP app;
 
-// Prototypes
-float convertAnalogToTemperature(unsigned int);
-
-  // Voltage sent into the voltage divider circuit that includes the analog
-  // sender
-  const float Vin = 3.3;
-  // The resistance, in ohms, of the fixed resistor (R1) in the voltage divider
-  // circuit
-  const float R1 = 316.0;
-
 class TemperatureInterpreter : public CurveInterpolator {
  public:
+
   TemperatureInterpreter(String config_path = "")
       : CurveInterpolator(NULL, config_path) {
-    // Populate a lookup table tp translate the ohm values returned by
-    // our temperature sender to degrees Kelvin
-    clear_samples();
-    // addSample(CurveInterpolator::Sample(knownOhmValue, knownKelvin));
-    add_sample(CurveInterpolator::Sample(5728, 10));
-    add_sample(CurveInterpolator::Sample(4496, 15));
-    add_sample(CurveInterpolator::Sample(3555, 20));
-    add_sample(CurveInterpolator::Sample(2830, 25));
-    add_sample(CurveInterpolator::Sample(2268, 30));
-    add_sample(CurveInterpolator::Sample(1828, 35));
-    add_sample(CurveInterpolator::Sample(1483, 40));
-    add_sample(CurveInterpolator::Sample(1210, 45));
-    add_sample(CurveInterpolator::Sample(992, 50));
-    add_sample(CurveInterpolator::Sample(819, 55));
-    add_sample(CurveInterpolator::Sample(679, 60));
-    add_sample(CurveInterpolator::Sample(566, 65));
-    add_sample(CurveInterpolator::Sample(475, 70));
-    add_sample(CurveInterpolator::Sample(400, 75));
-    add_sample(CurveInterpolator::Sample(338, 80));
-    add_sample(CurveInterpolator::Sample(287, 85));
-    add_sample(CurveInterpolator::Sample(245, 90));
-    add_sample(CurveInterpolator::Sample(210, 95));
-    add_sample(CurveInterpolator::Sample(180, 100));
-    add_sample(CurveInterpolator::Sample(156, 105));
-    add_sample(CurveInterpolator::Sample(135, 110));
-    add_sample(CurveInterpolator::Sample(117, 115));
-    add_sample(CurveInterpolator::Sample(102, 120));
 
+    // Seed the CurveInterpolator with the resistances and temperatures from the
+    // sensor datasheet.
+    float data_points[23][2] = {
+      {10, 5728}, {15, 4496}, {20, 3555}, {25, 2830}, {30, 2268}, {35, 1828}, {40, 1483},
+      {45, 1210}, {50, 992}, {55, 819}, {60, 679}, {65, 566}, {70, 475}, {75, 400},
+      {80, 338}, {85, 287}, {90, 244.8}, {95, 209.7}, {100, 180.3}, {105, 155.6},
+      {110, 134.7}, {115, 117.1}, {120, 102.2}
+    };
+
+    clear_samples();
+
+    for (int index=0; index < 23; index++) {
+      add_sample(CurveInterpolator::Sample(data_points[index][0], data_points[index][1]));
+    }
   }
 };
 
@@ -86,7 +64,14 @@ void setup() {
                     ->get_app();
 
   // GPIO number to use for the analog input
-  const uint8_t kAnalogInputPin = 36;
+  const uint8_t collantAnalogInputPin = 36;
+
+  // Voltage sent into the voltage divider circuit that includes the analog
+  // sender
+  const float Vin = 3.3;
+  // The resistance, in ohms, of the fixed resistor (R1) in the voltage divider
+  // circuit
+  const float R1 = 316.0;
 
   // Define how often (in milliseconds) new samples are acquired
   const unsigned int kAnalogInputReadInterval = 500;
@@ -99,7 +84,7 @@ void setup() {
   // which is a value from 0 to 1023.
   // ESP32 has many pins that can be used for AnalogIn, and they're
   // expressed here as the XX in GPIOXX.
-  auto* analog_input = new AnalogInput(36);
+  auto* analog_input = new AnalogInput(collantAnalogInputPin);
 
     // The "Signal K path" identifies the output of this sensor to the Signal K
   // network.
@@ -131,37 +116,43 @@ void setup() {
   analog_input->connect_to(new AnalogVoltage())
       ->connect_to(new VoltageDividerR2(R1, Vin, "/coolant/temp/sender"))
       ->connect_to(new TemperatureInterpreter("/coolant/temp/curve"))
-      ->connect_to(new Linear(1.0, 0.0, "/collant/temp/calibrate"))
+      ->connect_to(new Linear(1.0, 273.0, "/collant/temp/calibrate"))
       ->connect_to(
           new SKOutputFloat(sk_path, "/coolant/temp/sk", metadata));
 
-  // Set GPIO pin 15 to output and toggle it every 650 ms
+  // Set highWaterAlarmDigitalOutputPin to high to activate the high water alarm.
+  const uint8_t highWaterAlarmDigitalOutputPin = 15;
+  pinMode(highWaterAlarmDigitalOutputPin, OUTPUT);
 
-  const uint8_t kDigitalOutputPin = 15;
-  const unsigned int kDigitalOutputInterval = 650;
-  pinMode(kDigitalOutputPin, OUTPUT);
-  app.onRepeat(kDigitalOutputInterval, [kDigitalOutputPin]() {
-    digitalWrite(kDigitalOutputPin, !digitalRead(kDigitalOutputPin));
-  });
 
   // Read GPIO 14 every time it changes
-
-  const uint8_t kDigitalInput1Pin = 14;
-  auto* digital_input1 =
-      new DigitalInputChange(kDigitalInput1Pin, INPUT_PULLUP, CHANGE);
+  const uint8_t highWaterAlarmDigitalInputPin = 14;
+  auto* highWaterSwitch =
+      new DigitalInputChange(highWaterAlarmDigitalInputPin, INPUT_PULLUP, CHANGE);
 
   // Connect the digital input to a lambda consumer that prints out the
   // value every time it changes.
+  highWaterSwitch->connect_to(new LambdaConsumer<bool>(
+      [](bool switchOn) { 
+        debugD("High water switch state changed: %d", switchOn);
+        if (switchOn) {
+          // Switch is on so turn the alarm on.
+          digitalWrite(highWaterAlarmDigitalOutputPin, HIGH);
+        } else {
+           digitalWrite(highWaterAlarmDigitalOutputPin, HIGH); 
+        }
+      }));
 
-  // Test this yourself by connecting pin 15 to pin 14 with a jumper wire and
-  // see if the value changes!
-
-  digital_input1->connect_to(new LambdaConsumer<bool>(
-      [](bool input) { debugD("Digital input value changed: %d", input); }));
+  // Connect digital input 2 to Signal K output.
+  highWaterSwitch->connect_to(new SKOutputBool(
+      "sensors.high_water_alarm.value",          // Signal K path
+      "/sensors/high_water_alarm/value",         // configuration path
+      new SKMetadata("",                       // No units for boolean values
+                     "High water alarm")  // Value description
+      ));
 
   // Create another digital input, this time with RepeatSensor. This approach
   // can be used to connect external sensor library to SensESP!
-
   const uint8_t kDigitalInput2Pin = 13;
   const unsigned int kDigitalInput2Interval = 1000;
 
@@ -173,12 +164,11 @@ void setup() {
   // Replace the lambda function internals with the input routine of your custom
   // library.
 
-  // Again, test this yourself by connecting pin 15 to pin 13 with a jumper
-  // wire and see if the value changes!
-
   auto* digital_input2 = new RepeatSensor<bool>(
       kDigitalInput2Interval,
-      [kDigitalInput2Pin]() { return digitalRead(kDigitalInput2Pin); });
+      [kDigitalInput2Pin]() { 
+        return digitalRead(kDigitalInput2Pin); 
+      });
 
   // Connect digital input 2 to Signal K output.
   digital_input2->connect_to(new SKOutputBool(
@@ -190,48 +180,6 @@ void setup() {
 
   // Start networking, SK server connections and other SensESP internals
   sensesp_app->start();
-}
-
-// ADC Value to Temperature for NTC Thermistor.
-// Author: James Sleeman http://sparks.gogo.co.nz/ntc.html
-// Licence: BSD (see footer for legalese)
-//
-// Thermistor characteristics:
-//   Nominal Resistance 2830 at 25°C
-//   Beta Value 3912.07
-//
-// Usage Examples:
-//   float bestAccuracyTemperature    = convertAnalogToTemperature(analogRead(analogPin));
-//   float lesserAccuracyTemperature  = approximateTemperatureFloat(analogRead(analogPin));
-//   int   lowestAccuracyTemperature  = approximateTemperatureInt(analogRead(analogPin));
-//
-// Better accuracy = more resource (memory, flash) demands, the approximation methods 
-// will only produce reasonable results in the range 50-100°C
-//
-//
-// Thermistor Wiring:
-//   Vcc -> Thermistor -> [316 Ohm Resistor] -> Gnd
-//                     |
-//                     \-> analogPin
-//
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-/** Calculate the temperature in °C from ADC (analogRead) value.
- *
- *  This conversion should generate reasonably accurate results over a large range of 
- *  the thermistor, it implements a 'Beta' approximation for a thermistor
- *  having Beta of 3912.07, and nominal values of 2830Ω at 25°C
- *
- *  @param {int} The result of an ADC conversion (analogRead) in the range 0 to 4096
- *  @return  {float} Temperature in °C
- */
-
-float  convertAnalogToTemperature(unsigned int analogReadValue)
-{
-  // If analogReadValue is 0, we would otherwise cause a Divide-By-Zero,
-  // Treat as crazy out-of-range temperature.
-  if(analogReadValue == 0) return -1000.0;
-  return (1/((log(((316.0 * (4096.0 - analogReadValue)) / analogReadValue)/2830.0)/3912.1) + (1 / (273.15 + 25.000)))) - 273.15;
 }
 
 void loop() { app.tick(); }
