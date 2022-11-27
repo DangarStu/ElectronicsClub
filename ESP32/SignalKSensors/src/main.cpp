@@ -75,7 +75,7 @@ void setup() {
 
   // The resistance, in ohms, of the fixed resistor (R1) in the voltage divider
   // circuit
-  const float R1 = 330.0;
+  const float R2 = 330.0;
 
   auto* data_buffer = new MovingAverage(20, 1.0, "");
 
@@ -103,7 +103,7 @@ void setup() {
   */
   analog_input->connect_to(new AnalogVoltage())
       ->connect_to(data_buffer)
-      ->connect_to(new VoltageDividerR2(R1, Vin, "/coolant/temp/sender"))
+      ->connect_to(new VoltageDividerR1(R2, Vin, "/coolant/temp/sender"))
       ->connect_to(new TemperatureInterpreter("/coolant/temp/curve"))
       // ->connect_to(new Linear(1.0, 273.0, "/collant/temp/calibrate"))
       ->connect_to(
