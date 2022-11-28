@@ -107,7 +107,7 @@ void setup() {
       ->connect_to(data_buffer)
       ->connect_to(new VoltageDividerR2(R2, Vin, "/coolant/temp/sender"))
       ->connect_to(new TemperatureInterpreter("/coolant/temp/curve"))
-      // ->connect_to(new Linear(1.0, 273.0, "/collant/temp/calibrate"))
+      ->connect_to(new Linear(1.0, 273.0, "/collant/temp/calibrate"))
       ->connect_to(
           new SKOutputFloat(sk_path, "/coolant/temp/sk"));
 
