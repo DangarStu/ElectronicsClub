@@ -32,8 +32,10 @@ class TemperatureInterpreter : public CurveInterpolator {
 
     // Seed the CurveInterpolator with the resistances and temperatures from the
     // sensor datasheet.
-    float data_points[29][2] = {
-      {10, 5728}, {15, 4496}, {20, 3555}, {25, 2830}, {30, 2268}, {35, 1828}, {40, 1483},
+    float data_points[39][2] = {
+      {-40, 102122}, {-35, 73340}, {-30, 53249}, {-25, 39064}, {-20, 28939},
+      {-15, 21637}, {-10, 16321}, {-5, 12413}, {0, 9516}, {5, 7354}, {10, 5728},
+      {15, 4496}, {20, 3555}, {25, 2830}, {30, 2268}, {35, 1828}, {40, 1483},
       {45, 1210}, {50, 992}, {55, 819}, {60, 679}, {65, 566}, {70, 475}, {75, 400},
       {80, 338}, {85, 287}, {90, 244.8}, {95, 209.7}, {100, 180.3}, {105, 155.6},
       {110, 134.7}, {115, 117.1}, {120, 102.2}, {125, 89.4}, {130, 78.5}, {135, 69.1}, 
@@ -42,7 +44,7 @@ class TemperatureInterpreter : public CurveInterpolator {
 
     clear_samples();
 
-    for (int index=0; index < 29; index++) {
+    for (int index=38; index >= 0; index--) {
       add_sample(CurveInterpolator::Sample(data_points[index][1], data_points[index][0]));
       debugD("Sample(%F,%F)", data_points[index][1], data_points[index][0]);
     }
@@ -63,7 +65,7 @@ void setup() {
                     // Optionally, hard-code the WiFi and Signal K server
                     // settings. This is normally not needed.
                     ->set_wifi("D-Link DVA-2800", "Landrover")
-                    ->set_sk_server("192.168.1.3", 3000)
+                    ->set_sk_server("192.168.1.8", 3000)
                     ->get_app();
 
   // GPIO number to use for the coolant sensor input
@@ -71,11 +73,11 @@ void setup() {
 
   // Voltage sent into the voltage divider circuit that includes the analog
   // sender
-  const float Vin = 3.3;
+  const float Vin = 3.293;
 
   // The resistance, in ohms, of the fixed resistor (R1) in the voltage divider
   // circuit
-  const float R2 = 330.0;
+  const float R1 = 330.0;
 
   auto* data_buffer = new MovingAverage(20, 1.0, "");
 
@@ -95,20 +97,20 @@ void setup() {
      sending it to Signal K, requires several transforms. Wire them up in
      sequence:
      - convert the value from the AnalogIn pin into an AnalogVoltage()
-     - convert voltage into ohms with VoltageDividerR2()
+     - convert voltage into ohms with VoltageDividerR1()
      - find the Kelvin value for the given ohms value with
      TemperatureInterpreter()
      - use Linear() in case you want to calibrate the output at runtime
      - send calibrated Kelvin value to Signal K with SKOutputNumber()
   */
   analog_input->connect_to(new AnalogVoltage())
-      ->connect_to(data_buffer)
-      ->connect_to(new VoltageDividerR1(R2, Vin, "/coolant/temp/sender"))
+      // ->connect_to(data_buffer)
+      ->connect_to(new VoltageDividerR2(R1, Vin, "/coolant/temp/sender"))
       ->connect_to(new TemperatureInterpreter("/coolant/temp/curve"))
       // ->connect_to(new Linear(1.0, 273.0, "/collant/temp/calibrate"))
       ->connect_to(
           new SKOutputFloat(sk_path, "/coolant/temp/sk"));
-
+    
   // Set highWaterAlarmDigitalOutputPin to high to activate the high water alarm.
   const uint8_t highWaterAlarmDigitalOutputPin = 15;
   pinMode(highWaterAlarmDigitalOutputPin, OUTPUT);
