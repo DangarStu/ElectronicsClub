@@ -44,7 +44,7 @@ class TemperatureInterpreter : public CurveInterpolator {
 
     clear_samples();
 
-    for (int index=38; index >= 0; index--) {
+    for (int index=0; index < 39; index++) {
       add_sample(CurveInterpolator::Sample(data_points[index][1], data_points[index][0]));
       debugD("Sample(%F,%F)", data_points[index][1], data_points[index][0]);
     }
@@ -73,11 +73,11 @@ void setup() {
 
   // Voltage sent into the voltage divider circuit that includes the analog
   // sender
-  const float Vin = 3.293;
+  const float Vin = 3.3;
 
   // The resistance, in ohms, of the fixed resistor (R1) in the voltage divider
   // circuit
-  const float R1 = 330.0;
+  const float R2 = 330.0;
 
   auto* data_buffer = new MovingAverage(20, 1.0, "");
 
@@ -85,7 +85,7 @@ void setup() {
   // which is a value from 0 to 1023.
   // ESP32 has many pins that can be used for AnalogIn, and they're
   // expressed here as the XX in GPIOXX.
-  auto* analog_input = new AnalogInput(collantAnalogInputPin, 200, "", 1024);
+  auto* analog_input = new AnalogInput(collantAnalogInputPin, 200, "", 4096);
 
     // The "Signal K path" identifies the output of this sensor to the Signal K
   // network.
@@ -97,20 +97,20 @@ void setup() {
      sending it to Signal K, requires several transforms. Wire them up in
      sequence:
      - convert the value from the AnalogIn pin into an AnalogVoltage()
-     - convert voltage into ohms with VoltageDividerR1()
+     - convert voltage into ohms with VoltageDividerR2()
      - find the Kelvin value for the given ohms value with
      TemperatureInterpreter()
      - use Linear() in case you want to calibrate the output at runtime
      - send calibrated Kelvin value to Signal K with SKOutputNumber()
   */
   analog_input->connect_to(new AnalogVoltage())
-      // ->connect_to(data_buffer)
-      ->connect_to(new VoltageDividerR2(R1, Vin, "/coolant/temp/sender"))
+      ->connect_to(data_buffer)
+      ->connect_to(new VoltageDividerR2(R2, Vin, "/coolant/temp/sender"))
       ->connect_to(new TemperatureInterpreter("/coolant/temp/curve"))
       // ->connect_to(new Linear(1.0, 273.0, "/collant/temp/calibrate"))
       ->connect_to(
           new SKOutputFloat(sk_path, "/coolant/temp/sk"));
-    
+
   // Set highWaterAlarmDigitalOutputPin to high to activate the high water alarm.
   const uint8_t highWaterAlarmDigitalOutputPin = 15;
   pinMode(highWaterAlarmDigitalOutputPin, OUTPUT);
@@ -167,4 +167,6 @@ void setup() {
   sensesp_app->start();
 }
 
-void loop() { app.tick(); }
+void loop() { 
+app.tick(); 
+}
